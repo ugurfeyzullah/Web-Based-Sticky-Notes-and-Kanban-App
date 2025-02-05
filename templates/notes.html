@@ -1,0 +1,21 @@
+<!-- templates/notes.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Notes</title>
+</head>
+<body>
+    <h1>Notes</h1>
+    <ul>
+        {% for note in notes %}
+        <li>
+            <strong>{{ note.title }}</strong><br>
+            {{ note.content }}<br>
+            Position: ({{ note.top }}, {{ note.left }}), Color: {{ note.color }}<br>
+            User ID: {{ note.user_id }}
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
