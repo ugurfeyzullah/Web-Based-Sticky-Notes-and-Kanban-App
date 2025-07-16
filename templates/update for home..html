@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .team-box {
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .team-box:hover {
+            transform: translateY(-5px);
+        }
+        .team-box img {
+            max-width: 100px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+        .team-box h3 {
+            margin: 0;
+        }
+        .hidden {
+            display: none;
+        }
+        .form-container {
+            max-width: 400px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border: 1px solid #dddddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="team-container">
+        <!-- Teams will be dynamically loaded here -->
+    </div>
+    <div class="container">
+        <div class="team-box" onclick="showAdminLoginForm()">
+            <h3>Add a Team</h3>
+        </div>
+    </div>
+
+    <!-- Key Form -->
+    <form id="key-form" class="form-container hidden" onsubmit="validateKey(event)">
+        <h2>Enter Team Key</h2>
+        <input type="hidden" id="selected-team" name="team">
+        <input type="password" id="team-key" name="key" placeholder="Enter key" required>
+        <button type="submit">Submit</button>
+    </form>
+
+    <!-- Admin Login Form -->
+    <form id="admin-login-form" class="form-container hidden" onsubmit="validateAdminLogin(event)">
+        <h2>Admin Login</h2>
+        <input type="text" id="admin-username" name="username" placeholder="Username" required>
+        <input type="password" id="admin-password" name="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+
+    <script>
+        window.onload = function() {
+            loadTeamsFromLocalStorage();
+        };
+    
+        const adminCredentials = {
+            username: 'admin',
+            password: 'admin'
+        };
+    
+        // Initialize default keys and load them from local storage if available
+        var teamKeys = JSON.parse(localStorage.getItem('teamKeys')) || {
+            team1: 'key1',
+            team2: 'key2'
+        };
+    
+        function setupDefaultTeams() {
+            const teamContainer = document.getElementById('team-container');
+            if (!teamContainer.innerHTML.trim()) {
+                teamContainer.innerHTML = `
+                    <div class="team-box" onclick="showKeyForm('team1')">
+                        <img src="https://via.placeholder.com/100" alt="Team 1 Logo"><p>Add a logo</p>
+                        <h3>Team 1</h3>
+                    </div>
+                    <div class="team-box" onclick="showKeyForm('team2')">
+                        <img src="https://via.placeholder.com/100" alt="Team 2 Logo"><p>Add a logo</p>
+                        <h3>Team 2</h3>
+                    </div>
+                `;
+                saveTeamsToLocalStorage();
+            }
+        }
+    
+        function loadTeamsFromLocalStorage() {
+            const savedTeams = localStorage.getItem('teams');
+            if (savedTeams) {
+                document.getElementById('team-container').innerHTML = savedTeams;
+            } else {
+                setupDefaultTeams();
+            }
+        }
+    
+        function showKeyForm(team) {
+            document.getElementById('selected-team').value = team;
+            document.getElementById('key-form').classList.remove('hidden');
+            document.getElementById('admin-login-form').classList.add('hidden');
+        }
+    
+        function validateKey(event) {
+            event.preventDefault();
+            const team = document.getElementById('selected-team').value;
+            const key = document.getElementById('team-key').value;
+            if (teamKeys[team] && teamKeys[team] === key) {
+                alert('Access granted to ' + team);
+            } else {
+                alert('Invalid key');
+            }
+        }
+    
+        function showAdminLoginForm() {
+            document.getElementById('admin-login-form').classList.remove('hidden');
+            document.getElementById('key-form').classList.add('hidden');
+        }
+    
+        function validateAdminLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+            if (username === adminCredentials.username && password === adminCredentials.password) {
+                alert('Admin login successful');
+                addNewTeam();
+            } else {
+                alert('Invalid admin credentials');
+            }
+        }
+    
+        function addNewTeam() {
+            const teamContainer = document.getElementById('team-container');
+            const lastTeamId = parseInt(localStorage.getItem('lastTeamId') || '2') + 1;
+            const newTeamKey = prompt("Enter a key for the new team:", "");
+            if(newTeamKey === null || newTeamKey === "") {
+                alert("You must enter a key to add a new team.");
+                return;
+            }
+    
+            const newTeam = document.createElement('div');
+            newTeam.className = 'team-box';
+            newTeam.setAttribute('onclick', `showKeyForm('team${lastTeamId}')`);
+            newTeam.innerHTML = `
+                <img src="https://via.placeholder.com/100" alt="Team ${lastTeamId} Logo"><p>Add a logo</p>
+                <h3>Team ${lastTeamId}</h3>
+            `;
+            teamContainer.appendChild(newTeam);
+            localStorage.setItem('lastTeamId', lastTeamId.toString());
+            
+            // Update team keys
+            teamKeys[`team${lastTeamId}`] = newTeamKey;
+            localStorage.setItem('teamKeys', JSON.stringify(teamKeys));
+    
+            saveTeamsToLocalStorage();
+        }
+    
+        function saveTeamsToLocalStorage() {
+            const teamsHtml = document.getElementById('team-container').innerHTML;
+            localStorage.setItem('teams', teamsHtml);
+        }
+    </script>
+    
+</body>
+</html>

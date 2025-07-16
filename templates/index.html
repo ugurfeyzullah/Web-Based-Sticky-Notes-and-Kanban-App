@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400&display=swap">
+
+
+
+</head>
+<script>var loggedInUsername = "{{ username }}";</script>
+<script src="{{ url_for('static', filename='scripts.js') }}"></script>  
+<script src="{{ url_for('static', filename='user.js') }}"></script>  
+
+
+
+<script>
+    loadNotesFromServer();
+    loadKanbanFromServer();
+</script>
+<body>
+    <header>
+        <div>
+            
+            <!-- <div class="title">Task Organizer with Chatbot</div> -->
+  
+  
+            
+                <button class="theme-switcher" onclick="toggleTheme()" style="background:none; padding: 0px; margin-right: px;">
+                    <img src="{{ url_for('static', filename='switch.png') }}" alt="Theme Switcher" style="background:none;">
+                </button>
+
+                <div class="button-container" id="authContainer">
+
+
+                    <!-- Login and Signup buttons -->
+                    <button class="login-button">Login</button>
+                    <button class="signup-button">Sign Up</button>
+                    <!-- The rest of your modal content here -->
+
+                </div>
+                <div class="container-buttons">
+                    <button type="button" onclick="sendNotesToServer()">Save</button>
+                    <button type="button" onclick="createStickyNote()">New Note!</button>
+                    <button type="button" onclick="resetNotes()">Reset</button>
+                    <button type="button" onclick="createKanbanBoard()">Create Kanban Board</button>
+                    <button type="button" onclick="toggleCategoryPanel()">📋 Categories</button>
+                    <button type="button" onclick="createDefaultNotes()" id="defaultNotesBtn">📝 Load Default Tasks</button>
+
+                    <button type="button" style="position: absolute; right: 0; top: 0;" onclick="window.location.href='/';">Home</button>
+
+                </div>
+
+
+        </div>  
+    </header>
+
+    <!-- Category Panel -->
+    <div id="categoryPanel" class="category-panel">
+        <div class="category-header">
+            <h3>AI Categories</h3>
+            <button class="close-panel" onclick="toggleCategoryPanel()">×</button>
+        </div>
+        <div class="category-content">
+            <div class="category-stats">
+                <div class="categorization-status">
+                    <span id="categorizationStatus">Ready for AI categorization</span>
+                </div>
+            </div>
+            
+            <!-- Gantt Chart Section -->
+            <div class="gantt-chart-section">
+                <div class="gantt-header">
+                    <h4>Project Schedule</h4>
+                </div>
+                <div id="ganttChartContainer" class="gantt-container">
+                    <!-- Gantt chart will be displayed here -->
+                    <p class="gantt-placeholder">Generate a Gantt chart to visualize your project schedule.</p>
+                </div>
+                <div class="gantt-actions">
+                    <button onclick="generateGanttChart()" class="gantt-btn">📊 Generate Gantt Chart</button>
+                    <button onclick="generateAIGanttChart()" class="gantt-btn ai-btn">🤖 AI Schedule Optimization</button>
+                </div>
+            </div>
+            
+            <div class="category-list" id="categoryList">
+                <!-- Categories will be populated here -->
+            </div>
+            <div class="category-actions">
+                <button onclick="categorizeNotes()" class="ai-categorize-btn">🤖 Categorize All Notes</button>
+                <button onclick="clearCategories()" class="clear-categories-btn">Clear All Categories</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gantt Chart Modal -->
+    <div id="ganttModal" class="modal">
+        <div class="modal-content gantt-modal-content">
+            <span class="close-modal" onclick="closeGanttModal()">&times;</span>
+            <h2>Project Schedule</h2>
+            <div id="ganttChartModalContent" class="gantt-modal-chart">
+                <!-- Full-size Gantt chart will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Category overlay for notes -->
+    <div id="noteContextMenu" class="note-context-menu">
+        <div class="context-menu-item" onclick="showCategorySelector()">Change Category</div>
+        <div class="context-menu-item" onclick="showNoteTags()">View Tags</div>
+        <div class="context-menu-item" onclick="hideContextMenu()">Cancel</div>
+    </div>
+
+    <ul id="taskList">
+        {% for task in tasks %}
+            <li>
+                <span>{{ task }}</span>
+                <button onclick="removeTask(this)">Delete</button>
+            </li>
+        {% endfor %}
+    </ul>
+
+
+
+    <!-- Chatbot window -->
+    <div id="chatbotWindow">
+        <div id="chat-container">
+            <div id="chatbox" ></div>
+            <div id="input-box">
+                <input type="text" id="input" placeholder="Type a message...">
+                <button id="send">Send</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      $(document).ready(function(){
+          // Chatbot conversation history
+          let chatHistory = [];
+          
+          // Function to send a message
+          function sendMessage() {
+              // Check if the user is logged in
+              if (loggedInUsername) {
+                  var message = $('#input').val();
+                  if (!message.trim()) return; // Don't send empty messages
+                  
+                  $('#input').val('');
+                  $('#chatbox').append('<p><strong>You:</strong> ' + message + '</p>');
+                  
+                  // Show loading indicator
+                  $('#chatbox').append('<p id="loading"><strong>AI Assistant:</strong> <em>Thinking...</em></p>');
+                  $('#chatbox').scrollTop($('#chatbox')[0].scrollHeight);
+                  
+                  $.ajax({
+                      url: '/ask_chatbot',
+                      method: 'POST',
+                      contentType: 'application/json',
+                      data: JSON.stringify({ 
+                          message: message,
+                          history: chatHistory 
+                      }),
+                      success: function(response){
+                          // Remove loading indicator
+                          $('#loading').remove();
+                          
+                          $('#chatbox').append('<p><strong>AI Assistant:</strong> ' + response.response + '</p>');
+                          
+                          // Add to conversation history
+                          chatHistory.push({
+                              user: message,
+                              bot: response.response
+                          });
+                          
+                          // Auto-scroll to bottom
+                          $('#chatbox').scrollTop($('#chatbox')[0].scrollHeight);
+                      },
+                      error: function(xhr, status, error) {
+                          // Remove loading indicator
+                          $('#loading').remove();
+                          
+                          console.error('Chatbot error details:', {
+                              status: xhr.status,
+                              statusText: xhr.statusText,
+                              responseText: xhr.responseText,
+                              error: error
+                          });
+                          
+                          let errorMessage = 'Failed to get response. Please try again.';
+                          
+                          // Provide more specific error messages
+                          if (xhr.status === 400) {
+                              errorMessage = 'Bad request. Please check your team selection.';
+                          } else if (xhr.status === 500) {
+                              errorMessage = 'Server error. Please try again later.';
+                          } else if (xhr.status === 0) {
+                              errorMessage = 'Connection failed. Please check your internet connection.';
+                          }
+                          
+                          $('#chatbox').append('<p><strong>Error:</strong> ' + errorMessage + '</p>');
+                          $('#chatbox').scrollTop($('#chatbox')[0].scrollHeight);
+                      }
+                  });
+              } else {
+                  // User is not logged in, show a warning message
+                  alert("Please log in to access this feature.");
+              }
+          }
+    
+          // Click event for the send button
+          $('#send').on('click', function(){
+              sendMessage();
+          });
+    
+          // Keypress event for the input field to listen for the Enter key
+          $('#input').on('keypress', function(e){
+              if(e.which === 13) {  // 13 is the keycode for Enter
+                  sendMessage();
+              }
+          });
+      });
+    </script>
+
+
+
+
+
+<div class="chatbotButtonContainer" onclick="toggleChatbot()">
+    <svg viewBox="45 60 400 320" xmlns="http://www.w3.org/2000/svg" >
+        <path fill="#fff" d="M 90 210 C 90 180 90 150 90 150 C 150 150 180 150 180 150 C 180 150 300 150 300 150 C 300 150 330 150 390 150 C 390 150 390 180 390 210 C 390 240 390 270 390 270 C 330 270 300 270 300 270 C 300 270 180 270 180 270 C 180 270 150 270 150 270 C 90 270 90 240 90 210" mask="url(#knockout-text)">
+        </path>
+        <mask id="knockout-text" >
+        <rect width="100%" height="100%" fill="#fff" x="0" y="0" />
+        <text x="150" y="227" fill="#000">ChatBot</text >
+        </mask>
+    </svg>
+</div>
+<!--- M 90 210 C 90 180 90 150 150 150 C 150 150 180 150 180 150 C 180 150 300 150 300 150 C 300 150 330 150 330 150 C 390 150 390 180 390 210 C 390 240 390 270 330 270 C 330 270 300 270 300 270 C 300 270 180 270 180 270 C 180 270 150 270 150 270 C 90 270 90 240 90 210 --->
+
+<section>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+      <!-- Modal content -->
+      <div class="modal-content ">
+        <span class="close">&times;</span>
+        <form id="loginForm">
+          <!-- Form Fields for Login -->
+          <input type="text" name="username" placeholder="Username">
+          <input type="password" name="password" placeholder="Password">
+          <button type="submit">Login</button>
+        </form>
+      </div>
+    </div>
+  
+    <!-- Signup Modal -->
+    <div id="signupModal" class="modal">
+      <!-- Modal content -->
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <form id="signupForm">
+          <!-- Form Fields for Signup -->
+          <input type="text" name="newUsername" placeholder="Username">
+          <input type="email" name="email" placeholder="Email">
+          <input type="password" name="newPassword" placeholder="Password">
+          <button type="submit">Sign Up</button>
+        </form>
+      </div>
+    </div>
+  
+    <!-- Popup Modal -->
+    <div id="popupModal" class="modal-background">
+      <div class="modal-content">
+          <span class="close">&times;</span>
+          <form id="feedbackForm">
+              <label for="idea">Your comments are important for us. Please write your suggestions and comments about website:</label>
+              <textarea id="idea" name="idea" required></textarea>
+              <input type="submit" value="Submit">
+          </form>
+      </div>
+    </div>
+  
+  </section>
+
+
+  <body>
+
+    <section>
+
+        </div>
+    </section>
+    <div id="canvas-container" style="position: relative; width: 97vw; height: 90vh;  overflow: hidden;">
+        <div id="container" style="position: absolute; width: 100%; height: 100%;">
+            <!-- Notes will be created within this container -->
+        </div>
+    </div>
+    <script>
+        let noteId = 0;
+        let ox = 0, oy = 0, px = 0, py = 0, scx = 1, scy = 1;
+        const scaleMultiplier = 0.05; // Adjust this value to change zoom speed
+        let isDraggingCanvas = true;
+        let isDraggingNote = false;
+        let startDragOffset = { x: 0, y: 0 };
+
+  
+
+        function createStickyNote() {
+            const container = document.getElementById("container");
+            const canvasContainer = document.getElementById("canvas-container");
+            const rect = canvasContainer.getBoundingClientRect();
+
+            // Calculate center position relative to the container
+            const centerX = (rect.width / 2 - ox) / scx;
+            const centerY = (rect.height / 2 - oy) / scy;
+
+            const note = document.createElement("div");
+            note.className = "note";
+            note.id = "note" + noteId;
+            note.style.top = `${centerY}px`;
+            note.style.left = `${centerX}px`;
+            note.innerHTML = `
+                <div class="title" contenteditable="true" onclick="hidePlaceholder(this)">Title</div>
+                <div class="content" contenteditable="true" onclick="hidePlaceholder(this)">Click and type here!</div>
+                <input type="color" class="color-picker" onchange="changeNoteColor('${note.id}', this.value)" value="#F4F4F4">
+                <div class="deadline-section">
+                    <label class="deadline" for="deadline-${note.id}">Deadline:</label>
+                    <input type="datetime-local" class="deadline" value="${note.deadline || ''}" onchange="changeDeadline('${note.id}', this.value)">
+                
+                </div>
+                <div class="header">
+                    <span class="delete" onclick="deleteStickyNote('${note.id}')">Delete</span>
+                </div>`;
+            
+            // Add right-click context menu for category management
+            note.addEventListener('contextmenu', (event) => handleNoteRightClick(event, note));                                ;
+            noteId++;
+            note.addEventListener("mousedown", startDragNote);
+            container.appendChild(note);
+        }
+
+
+
+function startDragNote(event) {
+    isDraggingNote = true;
+    const note = event.target.closest(".note");
+    const mouseX = event.clientX;
+    const mouseY = event.clientY;
+    const noteX = parseFloat(note.style.left);
+    const noteY = parseFloat(note.style.top);
+
+    // Adjust offsets for zoom level
+    const offsetX = (mouseX - (noteX * scx + ox)) / scx;
+    const offsetY = (mouseY - (noteY * scy + oy)) / scy;
+
+    function dragNote(event) {
+        event.preventDefault();
+        const newNoteX = (event.clientX - ox) / scx - offsetX;
+        const newNoteY = (event.clientY - oy) / scy - offsetY;
+        note.style.left = newNoteX + "px";
+        note.style.top = newNoteY + "px";
+
+        // Check if the note is inside a column
+        const columns = document.getElementsByClassName("kanban-column");
+        Array.from(columns).forEach(column => {
+            const rect = column.getBoundingClientRect();
+            if (event.clientX > rect.left && event.clientX < rect.right && event.clientY > rect.top && event.clientY < rect.bottom) {
+                column.style.backgroundColor = "#d3d3d3"; // Highlight the column
+                currentColumn = column;
+            } else {
+                column.style.backgroundColor = ""; // Remove highlight
+            }
+        });
+    }
+
+    function stopDrag() {
+        document.removeEventListener("mousemove", dragNote);
+        document.removeEventListener("mouseup", stopDrag);
+        isDraggingNote = false;
+
+        // Place the note inside the column if applicable
+        if (currentColumn) {
+            const canvasRect = document.getElementById("canvas-container").getBoundingClientRect();
+            const note = event.target.closest(".note");
+            const noteRect = note.getBoundingClientRect();
+
+            // Calculate the new top position based on the release point
+            const newTop = event.clientY ;
+
+            // Set the new note's position
+            note.style.left = `${currentColumn.offsetLeft + 15}px`;
+            note.style.top = `${note.style.top}px`;
+
+            currentColumn.style.backgroundColor = ""; // Remove highlight
+            currentColumn = null;
+        }
+
+    }
+
+    document.addEventListener("mousemove", dragNote);
+    document.addEventListener("mouseup", stopDrag);
+}
+
+
+        function startDragCanvas(event) {
+            if (!isDraggingNote) {
+                isDraggingCanvas = true;
+                startDragOffset.x = event.clientX - ox;
+                startDragOffset.y = event.clientY - oy;
+
+                function dragCanvas(event) {
+                    event.preventDefault();
+                    ox = event.clientX - startDragOffset.x;
+                    oy = event.clientY - startDragOffset.y;
+                    updateTransform();
+                }
+
+                function stopDragCanvas() {
+                    document.removeEventListener("mousemove", dragCanvas);
+                    document.removeEventListener("mouseup", stopDragCanvas);
+                    isDraggingCanvas = false;
+                }
+
+                document.addEventListener("mousemove", dragCanvas);
+                document.addEventListener("mouseup", stopDragCanvas);
+            }
+        }
+
+
+
+
+
+
+
+
+
+        function createNoteOnPage(note) {
+            console.log('createnoteonpage',note);
+            const container = document.getElementById('container');
+            const noteElement = document.createElement('div');
+            const deadlineInput = noteElement.querySelector('.deadline');
+            if (deadlineInput) {
+                deadlineInput.value = note.deadline ? new Date(note.deadline).toISOString().slice(0, 16) : '';    }
+            noteElement.className = 'note';
+            noteElement.style.position = "absolute";
+            noteElement.style.top = note.top;
+            noteElement.style.left = note.left;
+            noteElement.style.backgroundColor = note.color;
+            noteElement.deadline = note.deadline;
+            noteElement.innerHTML = `
+                <div class="title" contenteditable="true">${note.title}</div>
+                <div class="content" contenteditable="true">${note.content}</div>
+                <input type="color" class="color-picker" value="${note.color}" onchange="changeNoteColor('${note.id}', this.value)">
+                <div class="deadline-section">
+                    <label class="deadline" for="deadline-${note.id}">Deadline:</label>
+                    <input type="datetime-local" class="deadline" value="${note.deadline || ''}" onchange="changeDeadline('${note.id}', this.value)">
+                </div>
+                <div class="header">
+                    <span class="delete" onclick="deleteStickyNote('${note.id}')">Delete</span>
+                </div>
+            `;
+            noteElement.addEventListener("mousedown", startDragNote);
+            container.appendChild(noteElement);
+            console.log('noteElement',noteElement);
+        }
+
+
+
+        function createKanbanBoard() {
+            const container = document.getElementById("container");
+            const canvasContainer = document.getElementById("canvas-container");
+            const rect = canvasContainer.getBoundingClientRect();
+
+            const columns = ["Backlog", "To do", "In progress", "Testing", "Done"];
+            const colors = ["red", "orange", "yellow", "green", "blue"]; // Predefined colors
+            const columnWidth = 400; // Adjusted for larger note width
+
+            // Add the board title above the column titles
+            const boardTitle = document.createElement("div");
+            boardTitle.className = "board-title";
+            boardTitle.contentEditable = true;
+            boardTitle.innerText = "Enter Board Title";
+            container.insertBefore(boardTitle, container.firstChild);
+
+            // Add the board deadline above the column titles
+            const boardDeadline = document.createElement("div");
+            boardDeadline.className = "board-deadline";
+            boardDeadline.contentEditable = true;
+            boardDeadline.innerText = "Deadline";
+            container.insertBefore(boardDeadline, container.firstChild);
+
+            columns.forEach((label, index) => {
+                const column = document.createElement("div");
+                column.className = "kanban-column";
+                column.style.left = `${(columnWidth * index)}px`;
+                column.style.width = `${columnWidth}px`;
+                column.style.position = "absolute"; // Ensures that left and width are respected
+                column.style.minHeight = "100px"; // Minimum height for empty columns
+                column.style.resize = "vertical";
+                column.style.overflow = "auto";
+
+                const columnLabel = document.createElement("div");
+                columnLabel.className = `kanban-label ${colors[index]}`; // Assign color class
+                columnLabel.style.left = `${(columnWidth * index)}px`;
+                columnLabel.style.width = `${columnWidth}px`;
+                columnLabel.innerText = label;
+
+                const resizeHandle = document.createElement("div");
+                resizeHandle.className = "resize-handle";
+                resizeHandle.style.height = "10px";
+                resizeHandle.style.background = "#ccc";
+                resizeHandle.style.width = "100%";
+                resizeHandle.style.position = "absolute";
+                resizeHandle.style.bottom = "0";
+                resizeHandle.style.cursor = "ns-resize";
+
+                column.appendChild(resizeHandle);
+
+                enableResize(column);   
+
+                container.appendChild(column);
+                container.appendChild(columnLabel);
+            });
+        }
+
+
+        function createKanbanBoardfromdb(kanbanData) {
+            const container = document.getElementById("container");
+            const columns = ["Backlog", "To do", "In progress", "Testing", "Done"];
+            const colors = ["red", "orange", "yellow", "green", "blue"]; // Predefined colors
+            const columnWidth = 400; // Set width for each column
+
+
+
+            // Create board title
+            const boardTitle = document.createElement("div");
+            boardTitle.className = "board-title";
+            boardTitle.contentEditable = true;
+            boardTitle.innerText = kanbanData.title || "Enter Board Title";
+            container.appendChild(boardTitle);
+
+            // Create board deadline
+            const boardDeadline = document.createElement("div");
+            boardDeadline.className = "board-deadline";
+            boardDeadline.contentEditable = true;
+            boardDeadline.innerText =  (kanbanData.deadline || "No Deadline");
+            container.appendChild(boardDeadline);
+
+            // Create and append columns
+            kanbanData.columns.forEach((col, index) => {
+                const column = document.createElement("div");
+                column.className = "kanban-column";
+                column.style.position = "absolute";
+                column.style.left = `${columnWidth * index}px`;
+                column.style.width = `${columnWidth}px`;
+                column.style.minHeight = "100px"; // Minimum height
+                column.style.resize = "vertical";
+                column.style.overflow = "auto";
+                column.style.height = `${col.columnHeight || 100}px`; // Apply height from database or default
+
+                // Create and append column label
+                const columnLabel = document.createElement("div");
+                columnLabel.className = `kanban-label ${colors[index % colors.length]}`;
+                columnLabel.innerText = columns[index];
+                columnLabel.style.position = "absolute";
+                columnLabel.style.width = `${columnWidth}px`;
+                columnLabel.style.top = "0";
+                columnLabel.style.left = `${columnWidth * index}px`;
+
+                // Resize handle for column resizing
+                const resizeHandle = document.createElement("div");
+                resizeHandle.className = "resize-handle";
+                resizeHandle.style.height = "10px";
+                resizeHandle.style.background = "#ccc";
+                resizeHandle.style.width = "100%";
+                resizeHandle.style.position = "absolute";
+                resizeHandle.style.bottom = "0";
+                resizeHandle.style.cursor = "ns-resize";
+
+                // Append label, handle, and column to the container
+                column.appendChild(resizeHandle);
+                container.appendChild(column);
+                container.appendChild(columnLabel);
+            });
+
+            // Initialize draggable functionality
+            enableResize2();
+        }
+        function enableResize2() {
+            // Implement or initialize resizable functionality for kanban columns
+            document.querySelectorAll('.kanban-column').forEach(column => {
+                const handle = column.querySelector('.resize-handle');
+                handle.addEventListener('mousedown', function(e) {
+                    e.stopPropagation(); // Prevent mousedown event from bubbling up
+                    const startY = e.clientY;
+                    const startHeight = parseInt(window.getComputedStyle(column).height, 10);
+
+                    function onMouseMove(e) {
+                        const newHeight = startHeight + e.clientY - startY;
+                        column.style.height = `${newHeight}px`;
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', function() {
+                        document.removeEventListener('mousemove', onMouseMove);
+                    });
+                });
+            });
+        }
+        function enableResize(column) {
+            const handle = column.querySelector('.resize-handle');
+            handle.addEventListener('mousedown', function(e) {
+                e.stopPropagation();  // Stop the mousedown event from bubbling up
+                const startY = e.clientY;
+                const startHeight = parseInt(window.getComputedStyle(column).height, 10);
+
+                function onMouseMove(e) {
+                    e.stopPropagation();  // Also prevent mousemove from bubbling up
+                    const newHeight = startHeight + e.clientY - startY;
+                    column.style.height = `${newHeight}px`;
+                }
+
+                function onMouseUp(e) {
+                    e.stopPropagation();  // And prevent mouseup from affecting other elements
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                }
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+
+
+
+
+        function applyTransform(element) {
+            element.style.transform = `translate(${ox}px, ${oy}px) scale(${scx})`;
+        }
+
+        document.getElementById('canvas-container').addEventListener('mousedown', startDragCanvas);
+
+        document.getElementById('canvas-container').addEventListener('wheel', function(evt) {
+            evt.preventDefault();
+            const container = document.getElementById("container");
+            const rect = container.getBoundingClientRect();
+            const mouseX = (evt.clientX - rect.left);
+            const mouseY = (evt.clientY - rect.top);
+
+            const [bfzx, bfzy] = StoW(mouseX, mouseY);
+
+            if (evt.deltaY < 0) {
+                scx += scaleMultiplier;
+                scy += scaleMultiplier;
+            } else {
+                scx -= scaleMultiplier;
+                scy -= scaleMultiplier;
+            }
+
+            const [afzx, afzy] = StoW(mouseX, mouseY);
+
+            ox += bfzx - afzx;
+            oy += bfzy - afzy;
+
+            updateTransform();
+        });
+
+        function updateTransform() {
+            const container = document.getElementById("container");
+            container.style.transform = `translate(${ox}px, ${oy}px) scale(${scx}, ${scy})`;
+        }
+
+        function WtoS(wx, wy) {
+            let sx = (wx - ox) * scx;
+            let sy = (wy - oy) * scy;
+            return [sx, sy];
+        }
+
+        function StoW(sx, sy) {
+            let wx = sx / scx + ox;
+            let wy = sy / scy + oy;
+            return [wx, wy];
+        }
+
+
+    </script>
+</body>
+</html>
+
+
+
+
